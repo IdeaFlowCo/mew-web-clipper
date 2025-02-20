@@ -1,3 +1,10 @@
+# How to Install
+* Clone the repo `git clone https://github.com/IdeaFlowCo/mew-web-clipper.git`
+* Navigate to chrome://extensions
+* Enable 'Developer Mode' in the top-right
+* Click the 'Load Unpacked' button in the top-left
+* Load the cloned repo
+
 # How to Use
 You can now use Mew Web Clipper to rapidly integrate information into your Mew knowledgebase.
 Save highlights, webpages, and more.
