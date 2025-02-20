@@ -4,6 +4,7 @@
 * Enable 'Developer Mode' in the top-right
 * Click the 'Load Unpacked' button in the top-left
 * Load the cloned repo
+* You're done! Happy clipping.
 
 # How to Use
 You can now use Mew Web Clipper to rapidly integrate information into your Mew knowledgebase.
