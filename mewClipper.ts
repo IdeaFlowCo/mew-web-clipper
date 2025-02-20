@@ -145,8 +145,26 @@ export async function getArticleNode(
         ((await getStorageValue(storageKey)) as { [key: string]: string }) ||
         {};
     if (articleNodes[url]) {
-        console.log("[MewClipper] Found existing article node for url:", url);
-        return articleNodes[url];
+        console.log(
+            "[MewClipper] Found potential existing article node for url:",
+            url
+        );
+        // Verify the node is still a direct child of My Highlights
+        const { childNodes } = await mewApi.getChildNodes({
+            parentNodeId: myClipsFolderId,
+        });
+        const isStillChild = childNodes.some(
+            (node) => node.id === articleNodes[url]
+        );
+        if (isStillChild) {
+            console.log(
+                "[MewClipper] Verified article node is still a child of My Highlights"
+            );
+            return articleNodes[url];
+        }
+        console.log(
+            "[MewClipper] Article node no longer a child of My Highlights, creating new one"
+        );
     }
     console.log("[MewClipper] Creating new article node for", title);
     const response = await mewApi.addNode({
