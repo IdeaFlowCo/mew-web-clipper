@@ -11,5 +11,5 @@ Save highlights, webpages, and more.
   * create AI summary from transcript
 * Saving a webpage captures all the text on that page
  
-# Known Bugs
-* If you delete an article/page node, new clips will be put under that node. This is a problem with Mew persisting deleted nodes.
+# Known Issues
+* None. Time to report some issues!
