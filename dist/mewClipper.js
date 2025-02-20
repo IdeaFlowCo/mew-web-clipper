@@ -33,7 +33,7 @@ async function getUserId() {
     decoded = decoded.replace(/%7C/gi, "|");
     return decoded;
 }
-const myClipsFolderName = "My Clips 2";
+const myClipsFolderName = "My Highlights";
 export async function ensureMyClips() {
     console.log("[MewClipper] Starting search for folder:", myClipsFolderName);
     const userRootUrl = await getStorageValue("userRootUrl");

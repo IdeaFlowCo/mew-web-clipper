@@ -1,4 +1,26 @@
 import { ensureMyClips, getArticleNode, addClip } from "./mewClipper.js";
+async function injectNotificationSystem(tabId) {
+    await chrome.scripting.insertCSS({
+        target: { tabId },
+        files: ["notification.css"],
+    });
+    await chrome.scripting.executeScript({
+        target: { tabId },
+        files: ["notification.js"],
+    });
+}
+async function showNotification(tabId, message) {
+    await chrome.scripting.executeScript({
+        target: { tabId },
+        func: (msg) => {
+            const showNotification = window.showNotification;
+            if (showNotification) {
+                showNotification(msg);
+            }
+        },
+        args: [message],
+    });
+}
 console.log("[Background] Mew Web Clipper extension background initialized.");
 chrome.runtime.onInstalled.addListener(async () => {
     console.log("[Background] onInstalled event fired. Creating context menu items.");
@@ -61,6 +83,10 @@ chrome.contextMenus.onClicked.addListener(async (info, tab) => {
             console.log("[Background] Cleared local storage");
             return;
         }
+        if (tab.id) {
+            await injectNotificationSystem(tab.id);
+            await showNotification(tab.id, "Saving to My Highlights...");
+        }
         const myClipsFolderId = await ensureMyClips();
         console.log("[Mew API] ensureMyClips response:", myClipsFolderId);
         if (!tab.title || !tab.url) {
@@ -74,14 +100,23 @@ chrome.contextMenus.onClicked.addListener(async (info, tab) => {
             const clipNodeId = await addClip(articleNodeId, info.selectionText);
             console.log("[Mew API] addClip response:", clipNodeId);
             console.log("[Background] Clip saved with node id:", clipNodeId);
+            if (tab.id) {
+                await showNotification(tab.id, "Selection saved to My Highlights");
+            }
         }
         else if (info.menuItemId === "savePage") {
             console.log("[Background] Saving full page capture.");
             console.log("[Background] Page saved. Article node id:", articleNodeId);
+            if (tab.id) {
+                await showNotification(tab.id, "Page saved to My Highlights");
+            }
         }
     }
     catch (err) {
         console.error("[Background] Error processing context menu click:", err);
+        if (tab && tab.id) {
+            await showNotification(tab.id, "Error saving to My Highlights");
+        }
     }
 });
 chrome.commands.onCommand.addListener(async (command) => {
@@ -110,14 +145,28 @@ chrome.commands.onCommand.addListener(async (command) => {
                 !userRootUrl.includes("mew-edge.ideaflow.app")) {
                 throw new Error("Please complete the Mew Web Clipper setup first");
             }
+            if (tab.id) {
+                await injectNotificationSystem(tab.id);
+                await showNotification(tab.id, "Saving page to My Highlights...");
+            }
             const myClipsFolderId = await ensureMyClips();
             console.log("[Mew API] ensureMyClips response:", myClipsFolderId);
             const articleNodeId = await getArticleNode(tab.title, tab.url, myClipsFolderId);
             console.log("[Mew API] getArticleNode response:", articleNodeId);
             console.log("[Background] Page captured via keyboard shortcut. Article node id:", articleNodeId);
+            if (tab.id) {
+                await showNotification(tab.id, "Page saved to My Highlights");
+            }
         }
         catch (err) {
             console.error("[Background] Error processing clipPage command:", err);
+            const tabs = await chrome.tabs.query({
+                active: true,
+                currentWindow: true,
+            });
+            if (tabs && tabs[0] && tabs[0].id) {
+                await showNotification(tabs[0].id, "Error saving page to My Highlights");
+            }
         }
     }
 });

@@ -2,6 +2,36 @@
 
 import { ensureMyClips, getArticleNode, addClip } from "./mewClipper.js";
 
+// Function to inject notification system into a tab
+async function injectNotificationSystem(tabId: number) {
+    // Inject CSS
+    await chrome.scripting.insertCSS({
+        target: { tabId },
+        files: ["notification.css"],
+    });
+
+    // Inject notification script
+    await chrome.scripting.executeScript({
+        target: { tabId },
+        files: ["notification.js"],
+    });
+}
+
+// Function to show notification in a tab
+async function showNotification(tabId: number, message: string) {
+    await chrome.scripting.executeScript({
+        target: { tabId },
+        func: (msg) => {
+            // Get the showNotification function from the injected script
+            const showNotification = (window as any).showNotification;
+            if (showNotification) {
+                showNotification(msg);
+            }
+        },
+        args: [message],
+    });
+}
+
 console.log("[Background] Mew Web Clipper extension background initialized.");
 
 // Clear storage command for development/testing
@@ -81,6 +111,12 @@ chrome.contextMenus.onClicked.addListener(async (info, tab) => {
             return;
         }
 
+        // Optimistic UI: Show notification immediately
+        if (tab.id) {
+            await injectNotificationSystem(tab.id);
+            await showNotification(tab.id, "Saving to My Highlights...");
+        }
+
         const myClipsFolderId = await ensureMyClips();
         console.log("[Mew API] ensureMyClips response:", myClipsFolderId);
 
@@ -101,6 +137,12 @@ chrome.contextMenus.onClicked.addListener(async (info, tab) => {
             const clipNodeId = await addClip(articleNodeId, info.selectionText);
             console.log("[Mew API] addClip response:", clipNodeId);
             console.log("[Background] Clip saved with node id:", clipNodeId);
+            if (tab.id) {
+                await showNotification(
+                    tab.id,
+                    "Selection saved to My Highlights"
+                );
+            }
         } else if (info.menuItemId === "savePage") {
             console.log("[Background] Saving full page capture.");
             // For full page capture we simply ensure the article node exists
@@ -108,9 +150,15 @@ chrome.contextMenus.onClicked.addListener(async (info, tab) => {
                 "[Background] Page saved. Article node id:",
                 articleNodeId
             );
+            if (tab.id) {
+                await showNotification(tab.id, "Page saved to My Highlights");
+            }
         }
     } catch (err) {
         console.error("[Background] Error processing context menu click:", err);
+        if (tab && tab.id) {
+            await showNotification(tab.id, "Error saving to My Highlights");
+        }
     }
 });
 
@@ -147,6 +195,15 @@ chrome.commands.onCommand.addListener(async (command) => {
                 );
             }
 
+            // Optimistic UI: Show notification immediately
+            if (tab.id) {
+                await injectNotificationSystem(tab.id);
+                await showNotification(
+                    tab.id,
+                    "Saving page to My Highlights..."
+                );
+            }
+
             const myClipsFolderId = await ensureMyClips();
             console.log("[Mew API] ensureMyClips response:", myClipsFolderId);
             const articleNodeId = await getArticleNode(
@@ -159,11 +216,24 @@ chrome.commands.onCommand.addListener(async (command) => {
                 "[Background] Page captured via keyboard shortcut. Article node id:",
                 articleNodeId
             );
+            if (tab.id) {
+                await showNotification(tab.id, "Page saved to My Highlights");
+            }
         } catch (err) {
             console.error(
                 "[Background] Error processing clipPage command:",
                 err
             );
+            const tabs = await chrome.tabs.query({
+                active: true,
+                currentWindow: true,
+            });
+            if (tabs && tabs[0] && tabs[0].id) {
+                await showNotification(
+                    tabs[0].id,
+                    "Error saving page to My Highlights"
+                );
+            }
         }
     }
 });

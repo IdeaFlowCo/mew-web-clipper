@@ -24,5 +24,11 @@
             "description": "Clip current page to Mew"
         }
     },
-    "host_permissions": ["*://*/*"]
+    "host_permissions": ["*://*/*"],
+    "web_accessible_resources": [
+        {
+            "resources": ["notification.css", "notification.js"],
+            "matches": ["<all_urls>"]
+        }
+    ]
 }
