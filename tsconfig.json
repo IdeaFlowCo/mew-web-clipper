@@ -1,0 +1,13 @@
+{
+    "compilerOptions": {
+        "target": "ESNext",
+        "module": "ESNext",
+        "lib": ["ESNext", "DOM"],
+        "strict": true,
+        "moduleResolution": "node",
+        "types": ["chrome"],
+        "removeComments": true,
+        "outDir": "dist"
+    },
+    "include": ["background.ts", "mewClipper.ts", "MewService.ts", "utils/*.ts"]
+}

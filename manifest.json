@@ -1,0 +1,28 @@
+{
+    "manifest_version": 3,
+    "name": "Mew Web Clipper",
+    "version": "1.0",
+    "description": "Chrome extension to quickly clip webpages and highlights to Mew.",
+    "permissions": [
+        "activeTab",
+        "contextMenus",
+        "scripting",
+        "tabs",
+        "storage",
+        "notifications"
+    ],
+    "background": {
+        "service_worker": "dist/background.js",
+        "type": "module"
+    },
+    "commands": {
+        "clipPage": {
+            "suggested_key": {
+                "default": "Ctrl+Shift+Y",
+                "mac": "Command+Shift+Y"
+            },
+            "description": "Clip current page to Mew"
+        }
+    },
+    "host_permissions": ["*://*/*"]
+}
