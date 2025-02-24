@@ -187,7 +187,7 @@ export class MewAPI {
                 content: nodeContent,
                 isPublic: true,
                 isNewRelatedObjectsPublic: false,
-                canonicalRelationId: null,
+                canonicalRelationId: parentNodeId ? parentChildRelationId : null,
                 isChecked: isChecked ?? null,
             },
         });
