@@ -25,7 +25,9 @@
         }
     },
     "host_permissions": [
-        "*://*/*"
+        "https://ideaflow-mew-dev.us.auth0.com/*",
+        "https://mew-edge.ideaflow.app/*",
+        "https://www.youtube.com/api/*"
     ],
     "web_accessible_resources": [
         {

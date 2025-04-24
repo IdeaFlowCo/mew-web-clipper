@@ -583,69 +583,40 @@ async function addClip(articleNodeId, clipText) {
 // services/YouTubeService.ts
 var _YouTubeService = class _YouTubeService {
   constructor() {
-    this.loadApiKey();
+    __publicField(this, "apiKey", "");
   }
   /**
    * Logs debugging information when DEBUG is enabled
    */
   static debugLog(message, data) {
     if (_YouTubeService.DEBUG) {
-      if (data) {
-        console.log(`[YouTubeService DEBUG] ${message}`, data);
-      } else {
-        console.log(`[YouTubeService DEBUG] ${message}`);
-      }
+      console.log(`[YouTubeService Debug] ${message}`, data || "");
     }
   }
   /**
    * Logs error information
    */
   static errorLog(message, error) {
-    console.error(`[YouTubeService ERROR] ${message}`);
-    if (error) {
-      console.error(`[YouTubeService ERROR] Details:`, error);
-      if (error.stack) {
-        console.error(`[YouTubeService ERROR] Stack:`, error.stack);
-      }
-    }
+    console.error(`[YouTubeService Error] ${message}`, error || "");
   }
   /**
    * Logs general information
    */
   static infoLog(message, data) {
-    console.log(`[YouTubeService INFO] ${message}`);
-    if (data) {
-      console.log(`[YouTubeService INFO] Data:`, data);
-    }
+    console.info(`[YouTubeService Info] ${message}`, data || "");
   }
-  /**
-   * Loads the YouTube API key from Chrome storage
-   */
-  async loadApiKey() {
-    try {
-      const result = await chrome.storage.local.get("youtubeApiKey");
-      if (result && result.youtubeApiKey) {
-        _YouTubeService.API_KEY = result.youtubeApiKey;
-        _YouTubeService.debugLog("Loaded API key from storage");
-      } else {
-        _YouTubeService.debugLog("No API key found in storage");
-      }
-    } catch (error) {
-      console.error("[YouTubeService] Error loading API key:", error);
-    }
+  async setApiKey(key) {
+    this.apiKey = key;
+    await chrome.storage.local.set({ youtubeApiKey: key });
+    _YouTubeService.infoLog("YouTube API key saved");
   }
-  /**
-   * Sets the YouTube API key and stores it in Chrome storage
-   */
-  async setApiKey(apiKey) {
-    try {
-      _YouTubeService.API_KEY = apiKey;
-      await chrome.storage.local.set({ youtubeApiKey: apiKey });
-      _YouTubeService.debugLog("API key saved to storage");
-    } catch (error) {
-      console.error("[YouTubeService] Error saving API key:", error);
-      throw new Error(`Failed to save API key: ${error}`);
+  async getApiKey() {
+    if (this.apiKey) {
+      return this.apiKey;
     }
+    const result = await chrome.storage.local.get("youtubeApiKey");
+    this.apiKey = result.youtubeApiKey || "";
+    return this.apiKey;
   }
   /**
    * Extracts video ID from a YouTube URL
@@ -656,524 +627,97 @@ var _YouTubeService = class _YouTubeService {
    * - youtube.com/embed/VIDEO_ID
    */
   static extractVideoId(url) {
-    try {
-      const urlObj = new URL(url);
-      if (urlObj.hostname === "youtu.be") {
-        return urlObj.pathname.slice(1);
-      }
-      if (urlObj.hostname.includes("youtube.com") || urlObj.hostname.includes("youtube-nocookie.com")) {
-        const searchParams = new URLSearchParams(urlObj.search);
-        const videoId = searchParams.get("v");
-        if (videoId) return videoId;
-        const pathMatch = urlObj.pathname.match(
-          /^\/(v|embed)\/([^\/\?]+)/
-        );
-        if (pathMatch) {
-          return pathMatch[2];
-        }
-      }
-      return null;
-    } catch (error) {
-      console.error("[YouTubeService] Error parsing URL:", error);
-      return null;
-    }
+    if (!url) return null;
+    const shortMatch = url.match(/youtu\.be\/([a-zA-Z0-9_-]{11})/);
+    if (shortMatch) return shortMatch[1];
+    let videoIdMatch = url.match(/[?&]v=([a-zA-Z0-9_-]{11})/);
+    if (videoIdMatch) return videoIdMatch[1];
+    videoIdMatch = url.match(/embed\/([a-zA-Z0-9_-]{11})/);
+    if (videoIdMatch) return videoIdMatch[1];
+    videoIdMatch = url.match(/\/v\/([a-zA-Z0-9_-]{11})/);
+    if (videoIdMatch) return videoIdMatch[1];
+    return null;
   }
   /**
    * Checks if a given URL is a YouTube video
    */
   static isYouTubeVideo(url) {
-    return !!_YouTubeService.extractVideoId(url);
+    return !!url && (url.includes("youtube.com/watch") || url.includes("youtu.be/") || url.includes("youtube.com/embed") || url.includes("youtube.com/v/"));
   }
   /**
-   * Main method to fetch transcript for a YouTube video
-   * Uses browser-based scraping
+   * Main method to fetch transcript for a YouTube video.
+   * Uses a direct API approach that's more reliable than DOM scraping.
    */
   async getTranscript(videoId) {
-    _YouTubeService.infoLog(
-      `Starting transcript fetch for video ID: ${videoId}`
-    );
-    _YouTubeService.infoLog(
-      `Video URL: https://www.youtube.com/watch?v=${videoId}`
-    );
-    console.log("[TRANSCRIPT DEBUG] Starting transcript fetch process");
-    return await this.extractTranscriptWithBrowserScraping(videoId);
-  }
-  /**
-   * Extract transcript by injecting a content script that scrapes the YouTube page
-   */
-  async extractTranscriptWithBrowserScraping(videoId) {
-    _YouTubeService.infoLog(
-      "Starting browser-based transcript extraction for video ID: " + videoId
-    );
-    console.log("[TRANSCRIPT DEBUG] Browser-based extraction started");
-    const tabs = await chrome.tabs.query({
-      active: true,
-      currentWindow: true
-    });
-    if (!tabs || tabs.length === 0) {
-      throw new Error("No active tab found to perform browser scraping");
-    }
-    const tab = tabs[0];
-    let isOnCorrectPage = false;
-    if (tab.url && _YouTubeService.isYouTubeVideo(tab.url)) {
-      const currentVideoId = _YouTubeService.extractVideoId(tab.url);
-      isOnCorrectPage = currentVideoId === videoId;
-    }
-    if (!isOnCorrectPage) {
-      _YouTubeService.infoLog(
-        "Current tab is not on the target YouTube video, navigating to it"
-      );
-      if (!tab.id) {
-        throw new Error("Tab ID is undefined, cannot navigate");
-      }
+    try {
+      _YouTubeService.infoLog(`Getting transcript for video ${videoId}`);
       try {
-        console.log(
-          "[TRANSCRIPT DEBUG] Navigating to YouTube video page"
-        );
-        await chrome.tabs.update(tab.id, {
-          url: `https://www.youtube.com/watch?v=${videoId}`
-        });
-        await new Promise((resolve) => setTimeout(resolve, 3e3));
-        console.log(
-          "[TRANSCRIPT DEBUG] Navigation complete, waited 3s for page to load"
-        );
+        const transcript = await this.fetchDirectTranscript(videoId);
+        if (transcript) {
+          return transcript;
+        }
       } catch (error) {
         _YouTubeService.errorLog(
-          "Failed to navigate to YouTube video:",
+          "Direct transcript fetch failed",
           error
         );
-        throw new Error("Failed to navigate to YouTube video page");
       }
-    } else {
-      console.log(
-        "[TRANSCRIPT DEBUG] Already on correct YouTube video page"
-      );
-    }
-    if (!tab.id) {
-      throw new Error(
-        "Tab ID is undefined, cannot inject content script"
-      );
-    }
-    try {
-      console.log(
-        "[TRANSCRIPT DEBUG] Injecting content script to extract transcript"
-      );
-      const results = await chrome.scripting.executeScript({
-        target: { tabId: tab.id },
-        func: function() {
-          console.log(
-            "[Transcript Extractor] Starting transcript extraction from page"
-          );
-          console.log(
-            "[TRANSCRIPT DEBUG][Content Script] Starting transcript extraction"
-          );
-          try {
-            const findTranscriptButton = () => {
-              const menuButtons = Array.from(
-                document.querySelectorAll("button")
-              );
-              console.log(
-                "[TRANSCRIPT DEBUG][Content Script] Found " + menuButtons.length + " buttons on the page"
-              );
-              if (menuButtons.length > 0) {
-                console.log(
-                  "[TRANSCRIPT DEBUG][Content Script] Button texts sample: " + menuButtons.slice(
-                    0,
-                    Math.min(5, menuButtons.length)
-                  ).map(
-                    (b) => b.textContent || "empty"
-                  ).join(", ")
-                );
-              }
-              const transcriptButton2 = menuButtons.find(
-                (button) => button.textContent?.includes(
-                  "Show transcript"
-                ) || button.textContent?.includes(
-                  "Open transcript"
-                )
-              );
-              if (transcriptButton2) {
-                console.log(
-                  "[TRANSCRIPT DEBUG][Content Script] Found transcript button with text: " + (transcriptButton2.textContent || "empty")
-                );
-              } else {
-                console.log(
-                  "[TRANSCRIPT DEBUG][Content Script] No transcript button found"
-                );
-              }
-              return transcriptButton2;
-            };
-            const transcriptButton = findTranscriptButton();
-            if (transcriptButton) {
-              console.log(
-                "[TRANSCRIPT DEBUG][Content Script] Clicking transcript button"
-              );
-              transcriptButton.click();
-              setTimeout(() => {
-                console.log(
-                  "[TRANSCRIPT DEBUG][Content Script] Waited for transcript to load"
-                );
-              }, 1e3);
-            } else {
-              console.log(
-                "[TRANSCRIPT DEBUG][Content Script] No transcript button found, will try to find transcript panel directly"
-              );
-            }
-            const transcriptPanel = document.querySelector("ytd-transcript-renderer") || document.querySelector('[id="transcript-panel"]') || document.querySelector('[id="transcript"]');
-            console.log(
-              "[TRANSCRIPT DEBUG][Content Script] Transcript panel found: " + (transcriptPanel ? "Yes" : "No")
-            );
-            if (transcriptPanel) {
-              console.log(
-                "[TRANSCRIPT DEBUG][Content Script] Transcript panel element: " + transcriptPanel.tagName + " with class: " + (transcriptPanel.className || "none")
-              );
-              const segments = transcriptPanel.querySelectorAll(
-                "ytd-transcript-segment-renderer"
-              ) || transcriptPanel.querySelectorAll(".segment");
-              console.log(
-                "[TRANSCRIPT DEBUG][Content Script] Segments found: " + (segments ? segments.length : 0)
-              );
-              if (segments && segments.length > 0) {
-                console.log(
-                  "[TRANSCRIPT DEBUG][Content Script] Processing " + segments.length + " transcript segments"
-                );
-                let transcript = "";
-                Array.from(segments).forEach((segment) => {
-                  const timestampElem = segment.querySelector(
-                    ".segment-timestamp"
-                  ) || segment.querySelector(
-                    '[class*="timestamp"]'
-                  );
-                  const textElem = segment.querySelector(
-                    ".segment-text"
-                  ) || segment.querySelector(
-                    '[class*="text"]'
-                  );
-                  if (timestampElem && textElem) {
-                    const timestamp = timestampElem.textContent?.trim() || "";
-                    const text = textElem.textContent?.trim() || "";
-                    if (timestamp && text) {
-                      const formattedTimestamp = `[${timestamp}]`;
-                      transcript += `${formattedTimestamp} ${text}
-`;
-                    }
-                  }
-                });
-                if (transcript.trim()) {
-                  console.log(
-                    "[TRANSCRIPT DEBUG][Content Script] Successfully extracted transcript with " + transcript.split("\n").length + " lines"
-                  );
-                  return { transcript: transcript.trim() };
-                } else {
-                  console.log(
-                    "[TRANSCRIPT DEBUG][Content Script] Extracted empty transcript"
-                  );
-                }
-              } else {
-                console.log(
-                  "[TRANSCRIPT DEBUG][Content Script] No transcript segments found in panel"
-                );
-              }
-            } else {
-              console.log(
-                "[TRANSCRIPT DEBUG][Content Script] No transcript panel found"
-              );
-            }
-            console.log(
-              "[TRANSCRIPT DEBUG][Content Script] Looking for transcript data in script tags"
-            );
-            const scriptTags = document.querySelectorAll("script");
-            console.log(
-              "[TRANSCRIPT DEBUG][Content Script] Found " + scriptTags.length + " script tags"
-            );
-            let found = false;
-            for (let i = 0; i < scriptTags.length; i++) {
-              const script = scriptTags[i];
-              const content = script.textContent || "";
-              if (content.includes('"transcriptRenderer"') || content.includes('"captionTracks"')) {
-                found = true;
-                console.log(
-                  "[TRANSCRIPT DEBUG][Content Script] Found transcript data in script tag #" + i
-                );
-                try {
-                  console.log(
-                    "[TRANSCRIPT DEBUG][Content Script] Attempting to extract transcript from visible elements"
-                  );
-                  const transcriptItems = document.querySelectorAll(
-                    "yt-formatted-string.segment-text"
-                  );
-                  const timestampItems = document.querySelectorAll(
-                    "span.segment-timestamp"
-                  );
-                  console.log(
-                    "[TRANSCRIPT DEBUG][Content Script] Found " + transcriptItems.length + " text segments and " + timestampItems.length + " timestamps"
-                  );
-                  if (transcriptItems.length > 0 && timestampItems.length > 0 && transcriptItems.length === timestampItems.length) {
-                    console.log(
-                      "[TRANSCRIPT DEBUG][Content Script] Processing visible transcript elements"
-                    );
-                    let transcript = "";
-                    for (let i2 = 0; i2 < transcriptItems.length; i2++) {
-                      const text = transcriptItems[i2].textContent?.trim() || "";
-                      const timestamp = timestampItems[i2].textContent?.trim() || "";
-                      if (text && timestamp) {
-                        const formattedTimestamp = `[${timestamp}]`;
-                        transcript += `${formattedTimestamp} ${text}
-`;
-                      }
-                    }
-                    if (transcript.trim()) {
-                      console.log(
-                        "[TRANSCRIPT DEBUG][Content Script] Successfully extracted transcript from visible elements"
-                      );
-                      return {
-                        transcript: transcript.trim()
-                      };
-                    }
-                  }
-                  console.log(
-                    "[TRANSCRIPT DEBUG][Content Script] Failed to extract transcript from visible elements"
-                  );
-                } catch (extractError) {
-                  console.log(
-                    "[TRANSCRIPT DEBUG][Content Script] Error extracting from visible elements: " + (extractError instanceof Error ? extractError.message : String(extractError))
-                  );
-                }
-                try {
-                  console.log(
-                    "[TRANSCRIPT DEBUG][Content Script] Trying alternative transcript extraction method"
-                  );
-                  const transcriptContainer = document.querySelector(
-                    "ytd-transcript-search-panel-renderer"
-                  ) || document.querySelector(
-                    "ytd-transcript-renderer"
-                  );
-                  if (transcriptContainer) {
-                    console.log(
-                      "[TRANSCRIPT DEBUG][Content Script] Found transcript container"
-                    );
-                    const segmentRows = transcriptContainer.querySelectorAll(
-                      "ytd-transcript-segment-renderer, ytd-transcript-segment-list-renderer div.segment"
-                    );
-                    console.log(
-                      "[TRANSCRIPT DEBUG][Content Script] Found " + segmentRows.length + " segment rows"
-                    );
-                    if (segmentRows.length > 0) {
-                      let transcript = "";
-                      segmentRows.forEach((row) => {
-                        const timestamp = row.querySelector(
-                          '[class*="timestamp"]'
-                        )?.textContent?.trim() || row.querySelector(
-                          "div.segment-timestamp"
-                        )?.textContent?.trim() || "";
-                        const text = row.querySelector(
-                          '[class*="segment-text"]'
-                        )?.textContent?.trim() || row.querySelector(
-                          "div.segment-text"
-                        )?.textContent?.trim() || row.querySelector(
-                          "yt-formatted-string"
-                        )?.textContent?.trim() || "";
-                        if (timestamp && text) {
-                          const formattedTimestamp = `[${timestamp}]`;
-                          transcript += `${formattedTimestamp} ${text}
-`;
-                        }
-                      });
-                      if (transcript.trim()) {
-                        console.log(
-                          "[TRANSCRIPT DEBUG][Content Script] Successfully extracted transcript with alternative method"
-                        );
-                        return {
-                          transcript: transcript.trim()
-                        };
-                      }
-                    }
-                  }
-                } catch (altError) {
-                  console.log(
-                    "[TRANSCRIPT DEBUG][Content Script] Error with alternative extraction: " + (altError instanceof Error ? altError.message : String(altError))
-                  );
-                }
-                break;
-              }
-            }
-            if (found) {
-              console.log(
-                "[TRANSCRIPT DEBUG][Content Script] Found transcript data in page, but all extraction methods failed"
-              );
-              try {
-                console.log(
-                  "[TRANSCRIPT DEBUG][Content Script] Attempting last-resort extraction from any visible transcript text"
-                );
-                const visibleTranscriptPanel = document.querySelector(
-                  ".ytd-transcript-renderer"
-                ) || document.querySelector(
-                  '[id*="transcript"]'
-                ) || document.querySelector(
-                  '[class*="transcript"]'
-                );
-                if (visibleTranscriptPanel) {
-                  console.log(
-                    "[TRANSCRIPT DEBUG][Content Script] Found visible transcript panel"
-                  );
-                  const fullText = visibleTranscriptPanel.textContent || "";
-                  if (fullText.trim().length > 100) {
-                    console.log(
-                      "[TRANSCRIPT DEBUG][Content Script] Extracted text content of length: " + fullText.length
-                    );
-                    const lines = fullText.split("\n").map((line) => line.trim()).filter((line) => line.length > 0);
-                    if (lines.length > 0) {
-                      let transcript = "";
-                      let currentTimestamp = "";
-                      for (const line of lines) {
-                        if (/^\d+:\d+$/.test(
-                          line.trim()
-                        )) {
-                          currentTimestamp = line.trim();
-                        } else if (currentTimestamp && line.length > 3) {
-                          transcript += `[${currentTimestamp}] ${line}
-`;
-                          currentTimestamp = "";
-                        }
-                      }
-                      if (transcript.trim()) {
-                        console.log(
-                          "[TRANSCRIPT DEBUG][Content Script] Successfully created transcript from visible text"
-                        );
-                        return {
-                          transcript: transcript.trim()
-                        };
-                      }
-                    }
-                  }
-                }
-              } catch (visibleTextError) {
-                console.log(
-                  "[TRANSCRIPT DEBUG][Content Script] Error extracting visible text: " + (visibleTextError instanceof Error ? visibleTextError.message : String(visibleTextError))
-                );
-              }
-              console.log(
-                "[TRANSCRIPT DEBUG][Content Script] Applying raw transcript extraction"
-              );
-              const allPossibleTranscriptElements = document.querySelectorAll(
-                '[class*="transcript"] yt-formatted-string, [id*="transcript"] yt-formatted-string, ytd-transcript-segment-renderer, .ytd-transcript-renderer yt-formatted-string, .segment-text, [class*="segment-text"]'
-              );
-              if (allPossibleTranscriptElements && allPossibleTranscriptElements.length > 0) {
-                console.log(
-                  "[TRANSCRIPT DEBUG][Content Script] Found " + allPossibleTranscriptElements.length + " possible transcript elements"
-                );
-                let rawTranscript = [];
-                allPossibleTranscriptElements.forEach((el) => {
-                  const text = el.textContent?.trim();
-                  if (text && text.length > 0) {
-                    rawTranscript.push(text);
-                  }
-                });
-                if (rawTranscript.length > 0) {
-                  const uniqueLines = [
-                    ...new Set(rawTranscript)
-                  ];
-                  const formattedTranscript = uniqueLines.join("\n");
-                  console.log(
-                    "[TRANSCRIPT DEBUG][Content Script] Successfully extracted raw transcript with " + uniqueLines.length + " lines"
-                  );
-                  return {
-                    transcript: formattedTranscript,
-                    note: "Raw extraction without timestamps"
-                  };
-                }
-              }
-              try {
-                const anyTranscriptContent = document.querySelector(
-                  '[class*="transcript-container"]'
-                );
-                if (anyTranscriptContent) {
-                  const rawText = anyTranscriptContent.textContent?.trim();
-                  if (rawText && rawText.length > 50) {
-                    return {
-                      transcript: "TRANSCRIPT CONTENT:\n\n" + rawText,
-                      note: "Last resort extraction"
-                    };
-                  }
-                }
-              } catch (e) {
-                console.log(
-                  "[TRANSCRIPT DEBUG][Content Script] Last resort extraction failed"
-                );
-              }
-              return {
-                error: "Found transcript data in page, but all extraction methods failed"
-              };
-            }
-            console.log(
-              "[TRANSCRIPT DEBUG][Content Script] Could not find transcript on YouTube page"
-            );
-            return {
-              error: "Could not find transcript on YouTube page"
-            };
-          } catch (e) {
-            console.log(
-              "[TRANSCRIPT DEBUG][Content Script] Error occurred during extraction: " + (e instanceof Error ? e.message : String(e))
-            );
-            return {
-              error: `Error extracting transcript: ${e instanceof Error ? e.message : String(e)}`
-            };
-          }
-        }
-      });
-      console.log(
-        "[TRANSCRIPT DEBUG] Content script execution completed"
-      );
-      if (!results || results.length === 0 || !results[0].result) {
-        console.log(
-          "[TRANSCRIPT DEBUG] Script execution failed or returned no result"
-        );
-        throw new Error(
-          "Script execution failed or returned no result"
-        );
-      }
-      const transcriptResult = results[0].result;
-      console.log(
-        "[TRANSCRIPT DEBUG] Script execution returned result:",
-        transcriptResult
-      );
-      if (transcriptResult.error) {
-        console.log(
-          "[TRANSCRIPT DEBUG] Transcript extraction failed with error: " + transcriptResult.error
-        );
-        throw new Error(
-          `Transcript extraction failed: ${transcriptResult.error}`
-        );
-      }
-      if (!transcriptResult.transcript || transcriptResult.transcript.trim() === "") {
-        console.log("[TRANSCRIPT DEBUG] Extracted transcript is empty");
-        throw new Error("Extracted transcript is empty");
-      }
-      console.log(
-        "[TRANSCRIPT DEBUG] Successfully extracted transcript with " + transcriptResult.transcript.split("\n").length + " lines"
-      );
-      _YouTubeService.infoLog(
-        `Successfully extracted transcript from YouTube page, length: ${transcriptResult.transcript.length} chars`
-      );
-      return transcriptResult.transcript;
+      return "";
     } catch (error) {
-      console.log(
-        "[TRANSCRIPT DEBUG] Error during browser transcript extraction:",
-        error
-      );
-      _YouTubeService.errorLog(
-        "Error during browser transcript extraction:",
-        error
-      );
-      const err = error;
-      throw new Error(
-        `Browser-based transcript extraction failed: ${err.message}`
-      );
+      _YouTubeService.errorLog("Error getting transcript", error);
+      return "";
     }
   }
+  /**
+   * Fetches transcript by calling YouTube's timedtext API directly.
+   * This method avoids DOM scraping completely for better reliability.
+   */
+  async fetchDirectTranscript(videoId) {
+    console.log("[TRANSCRIPT DEBUG] Starting direct API transcript fetch");
+    const captionUrl = `https://www.youtube.com/api/timedtext?v=${videoId}&lang=en`;
+    try {
+      const response = await fetch(captionUrl);
+      if (response.ok) {
+        const text = await response.text();
+        if (text && text.includes("<text")) {
+          return this.parseXmlTranscript(text);
+        }
+      }
+    } catch (error) {
+      console.error("Error fetching transcript:", error);
+    }
+    throw new Error("Could not fetch transcript");
+  }
+  /**
+   * Parse transcript in XML format
+   */
+  parseXmlTranscript(xmlContent) {
+    let transcript = "";
+    const textTags = xmlContent.match(/<text[^>]*>(.*?)<\/text>/g) || [];
+    for (const tag of textTags) {
+      const contentMatch = tag.match(/<text[^>]*>(.*?)<\/text>/);
+      const startMatch = tag.match(/start="([^"]*)"/);
+      if (contentMatch && startMatch) {
+        const content = this.decodeHtmlEntities(contentMatch[1]);
+        const startTime = parseFloat(startMatch[1]);
+        const minutes = Math.floor(startTime / 60);
+        const seconds = Math.floor(startTime % 60);
+        const timestamp = `[${minutes}:${seconds.toString().padStart(2, "0")}]`;
+        transcript += `${timestamp} ${content}
+`;
+      }
+    }
+    return transcript;
+  }
+  /**
+   * Helper to decode HTML entities in transcript text
+   */
+  decodeHtmlEntities(text) {
+    const textarea = document.createElement("textarea");
+    textarea.innerHTML = text;
+    return textarea.value;
+  }
 };
-// YouTube API key - loaded from environment or chrome.storage
-__publicField(_YouTubeService, "API_KEY", "AIzaSyDqunJoC1b5Xx7PfJQ-eItSr0MzgOVIUsg");
 // Debug flag to enable verbose logging
 __publicField(_YouTubeService, "DEBUG", true);
 var YouTubeService = _YouTubeService;
