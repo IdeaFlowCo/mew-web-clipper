@@ -1,15 +1,4 @@
 import * as esbuild from "esbuild";
-import dotenv from "dotenv";
-
-// Load environment variables from .env file
-dotenv.config();
-
-// Define environment variables to include in the build
-const env = {
-    YOUTUBE_API_KEY: process.env.YOUTUBE_API_KEY || "",
-};
-
-console.log("Environment variables loaded for build process");
 
 const commonConfig = {
     bundle: true,
@@ -53,17 +42,12 @@ await esbuild.build({
     },
 });
 
-// Build background script and its dependencies
+// Build background script and its dependencies without bundling API keys
 await esbuild.build({
     ...tsConfig,
     entryPoints: ["background.ts"],
     outfile: "dist/background.bundle.js",
     external: ["chrome"],
-    define: {
-        "process.env.YOUTUBE_API_KEY": JSON.stringify(
-            process.env.YOUTUBE_API_KEY
-        ),
-    },
 });
 
 // Update manifest to point to bundled file
