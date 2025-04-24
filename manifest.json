@@ -3,6 +3,11 @@
     "name": "Mew Web Clipper",
     "version": "1.0",
     "description": "Chrome extension to quickly clip webpages and highlights to Mew.",
+    "icons": {
+        "16": "icons/icon16.png",
+        "48": "icons/icon48.png",
+        "128": "icons/icon128.png"
+    },
     "permissions": [
         "activeTab",
         "contextMenus",
@@ -36,9 +41,7 @@
                 "notification.js",
                 "dist/xmlParser.js"
             ],
-            "matches": [
-                "<all_urls>"
-            ]
+            "matches": ["<all_urls>"]
         }
     ]
 }
