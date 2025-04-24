@@ -119,6 +119,7 @@ export class MewAPI {
                 `https://${AUTH_CONFIG.auth0Domain}/oauth/token`,
                 {
                     method: "POST",
+                    mode: "cors",
                     headers: {
                         "Content-Type": "application/json",
                     },
@@ -187,7 +188,9 @@ export class MewAPI {
                 content: nodeContent,
                 isPublic: true,
                 isNewRelatedObjectsPublic: false,
-                canonicalRelationId: parentNodeId ? parentChildRelationId : null,
+                canonicalRelationId: parentNodeId
+                    ? parentChildRelationId
+                    : null,
                 isChecked: isChecked ?? null,
             },
         });
@@ -452,15 +455,18 @@ export class MewAPI {
         );
         console.log(
             "findNodeByText: child nodes content:",
-            childNodes.map((node) => ({
-                id: node.id,
-                content: node.content,
-                textValue: node.content?.[0]?.value,
-            }))
+            childNodes
+                .filter((node) => node)
+                .map((node) => ({
+                    id: node.id,
+                    content: node.content,
+                    textValue: node.content?.[0]?.value,
+                }))
         );
 
         const node = childNodes.find(
             (node) =>
+                node &&
                 node.content &&
                 node.content.length > 0 &&
                 node.content[0].value === nodeText

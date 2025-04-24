@@ -12,7 +12,7 @@
         "notifications"
     ],
     "background": {
-        "service_worker": "dist/background.js",
+        "service_worker": "dist/background.bundle.js",
         "type": "module"
     },
     "commands": {
@@ -24,11 +24,19 @@
             "description": "Clip current page to Mew"
         }
     },
-    "host_permissions": ["*://*/*"],
+    "host_permissions": [
+        "*://*/*"
+    ],
     "web_accessible_resources": [
         {
-            "resources": ["notification.css", "notification.js"],
-            "matches": ["<all_urls>"]
+            "resources": [
+                "notification.css",
+                "notification.js",
+                "dist/xmlParser.js"
+            ],
+            "matches": [
+                "<all_urls>"
+            ]
         }
     ]
 }

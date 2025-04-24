@@ -3,7 +3,10 @@
 // the user logs in w the same account they use for Mew, and then we
 // automatically grab the url to their user node using some lookup table
 
-import { MewAPI, parseNodeIdFromUrl } from "./MewService.js";
+import { MewAPI, parseNodeIdFromUrl } from "./MewService";
+import { Logger } from "./utils/logger";
+
+const logger = new Logger("MewClipper");
 
 // Helper functions for chrome.storage access
 async function getStorageValue(key: string): Promise<any> {
@@ -30,7 +33,7 @@ async function setStorageValue(key: string, value: any): Promise<void> {
     });
 }
 
-const mewApi = new MewAPI();
+export const mewApi = new MewAPI();
 
 // Add this helper function after setStorageValue
 async function getUserId(): Promise<string> {

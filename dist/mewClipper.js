@@ -1,4 +1,6 @@
 import { MewAPI, parseNodeIdFromUrl } from "./MewService.js";
+import { Logger } from "./utils/logger.js";
+const logger = new Logger("MewClipper");
 async function getStorageValue(key) {
     return new Promise((resolve, reject) => {
         chrome.storage.local.get(key, (result) => {
@@ -23,7 +25,7 @@ async function setStorageValue(key, value) {
         });
     });
 }
-const mewApi = new MewAPI();
+export const mewApi = new MewAPI();
 async function getUserId() {
     const stored = await getStorageValue("userNodeId");
     if (!stored) {

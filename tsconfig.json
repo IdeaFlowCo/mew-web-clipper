@@ -5,9 +5,15 @@
         "lib": ["ESNext", "DOM"],
         "strict": true,
         "moduleResolution": "node",
-        "types": ["chrome"],
+        "types": ["chrome", "node"],
         "removeComments": true,
         "outDir": "dist"
     },
-    "include": ["background.ts", "mewClipper.ts", "MewService.ts", "utils/*.ts"]
+    "include": [
+        "background.ts",
+        "mewClipper.ts",
+        "MewService.ts",
+        "services/YouTubeService.ts",
+        "utils/*.ts"
+    ]
 }
