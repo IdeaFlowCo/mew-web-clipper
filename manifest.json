@@ -41,7 +41,9 @@
                 "notification.js",
                 "dist/xmlParser.js"
             ],
-            "matches": ["<all_urls>"]
+            "matches": [
+                "<all_urls>"
+            ]
         }
     ]
 }
