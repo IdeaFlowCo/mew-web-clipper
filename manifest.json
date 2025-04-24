@@ -30,9 +30,10 @@
         }
     },
     "host_permissions": [
-        "https://ideaflow-mew-dev.us.auth0.com/*",
-        "https://mew-edge.ideaflow.app/*",
-        "https://www.youtube.com/api/*"
+        "https://ideaflow-mew-dev.us.auth0.com/oauth/token",
+        "https://mew-edge.ideaflow.app/api/layer",
+        "https://mew-edge.ideaflow.app/api/sync",
+        "https://www.youtube.com/api/timedtext*"
     ],
     "web_accessible_resources": [
         {
