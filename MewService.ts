@@ -192,6 +192,11 @@ export class MewAPI {
                     ? parentChildRelationId
                     : null,
                 isChecked: isChecked ?? null,
+                accessMode: 0,
+                attributes: {
+                    isAiGenerated: false,
+                    isUnconfirmed: false,
+                },
             },
         });
 
@@ -247,6 +252,11 @@ export class MewAPI {
                     isNewRelatedObjectsPublic: false,
                     canonicalRelationId: null,
                     isChecked: null,
+                    accessMode: 0,
+                    attributes: {
+                        isAiGenerated: false,
+                        isUnconfirmed: false,
+                    },
                 },
             });
             const newRelationTypeId = this.uuid();

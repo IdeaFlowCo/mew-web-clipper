@@ -134,7 +134,12 @@ var MewAPI = class {
         isPublic: true,
         isNewRelatedObjectsPublic: false,
         canonicalRelationId: parentNodeId ? parentChildRelationId : null,
-        isChecked: isChecked ?? null
+        isChecked: isChecked ?? null,
+        accessMode: 0,
+        attributes: {
+          isAiGenerated: false,
+          isUnconfirmed: false
+        }
       }
     });
     if (parentNodeId) {
@@ -184,7 +189,12 @@ var MewAPI = class {
           isPublic: true,
           isNewRelatedObjectsPublic: false,
           canonicalRelationId: null,
-          isChecked: null
+          isChecked: null,
+          accessMode: 0,
+          attributes: {
+            isAiGenerated: false,
+            isUnconfirmed: false
+          }
         }
       });
       const newRelationTypeId = this.uuid();
