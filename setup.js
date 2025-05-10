@@ -30,7 +30,14 @@ document.addEventListener("DOMContentLoaded", function () {
                     return;
                 }
 
+                // Extract the proper user ID from userRootIdSegment by removing the prefix
                 let userNodeId = userRootIdSegment;
+                
+                // The actual user ID is after the 'user-root-id-' prefix
+                if (userNodeId.startsWith("user-root-id-")) {
+                    userNodeId = userNodeId.substring("user-root-id-".length);
+                }
+                
                 // Save both userNodeId and userRootUrl using the input URL
                 await chrome.storage.local.set({
                     userNodeId,

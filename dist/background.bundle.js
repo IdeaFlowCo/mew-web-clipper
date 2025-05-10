@@ -62,11 +62,9 @@ function createNodeContent(content) {
 var MewAPI = class {
   constructor() {
     __publicField(this, "baseUrl");
-    __publicField(this, "baseNodeUrl");
     __publicField(this, "token");
     __publicField(this, "currentUserId");
     this.baseUrl = AUTH_CONFIG.baseUrl;
-    this.baseNodeUrl = AUTH_CONFIG.baseNodeUrl;
     this.token = "";
     this.currentUserId = "";
   }
@@ -80,7 +78,12 @@ var MewAPI = class {
     return crypto.randomUUID();
   }
   async getAccessToken() {
+    if (this.token) {
+      logger.info("Using existing access token");
+      return this.token;
+    }
     try {
+      logger.info("Requesting new access token from Auth0...");
       const response = await fetch(
         `https://${AUTH_CONFIG.auth0Domain}/oauth/token`,
         {
@@ -98,19 +101,27 @@ var MewAPI = class {
         }
       );
       if (!response.ok) {
-        throw new Error(`Auth failed: ${response.statusText}`);
+        const errorText = await response.text();
+        logger.error(`Auth0 request failed: ${response.status} ${response.statusText}`);
+        logger.error(`Response: ${errorText}`);
+        throw new Error(`Auth failed: ${response.statusText}. Response: ${errorText}`);
       }
       const data = await response.json();
+      if (!data.access_token) {
+        logger.error("No access token in response:", data);
+        throw new Error("No access token in response");
+      }
+      logger.info("Successfully obtained access token");
       this.token = data.access_token;
+      return this.token;
     } catch (error) {
       if (error instanceof Error) {
         logger.error("Failed to fetch access token:", error);
       } else {
         logger.error("Failed to fetch access token: Unknown error");
       }
-      this.token = "dummy-access-token";
+      throw new Error("Authentication failed. Please check your network connection and try again.");
     }
-    return this.token;
   }
   async addNode(input) {
     const { content, parentNodeId, relationLabel, isChecked, authorId } = input;
@@ -287,12 +298,50 @@ var MewAPI = class {
       });
     }
     const token = await this.getAccessToken();
+    if (!usedAuthorId || usedAuthorId === "dummy-user-id" || usedAuthorId.includes("user-root-id-")) {
+      logger.error("Invalid authorId format:", usedAuthorId);
+      throw new Error(`Invalid authorId format: ${usedAuthorId}`);
+    }
+    logger.info(`Syncing node with authorId: ${usedAuthorId}`);
+    const formattedUpdates = JSON.parse(JSON.stringify(updates));
+    formattedUpdates.forEach((update) => {
+      if (update.operation === "updateRelationList") {
+        if (update.newPosition) {
+          update.newPosition = {
+            int: update.newPosition.int,
+            frac: update.newPosition.frac
+          };
+        }
+      }
+      if (update.operation === "addRelation" && update.fromPos && update.toPos) {
+        update.fromPos = {
+          int: update.fromPos.int,
+          frac: update.fromPos.frac
+        };
+        update.toPos = {
+          int: update.toPos.int,
+          frac: update.toPos.frac
+        };
+      }
+    });
     const payload = {
       clientId: AUTH_CONFIG.auth0ClientId,
       userId: usedAuthorId,
       transactionId,
-      updates
+      updates: formattedUpdates
     };
+    logger.info("Sending sync request with payload summary:", {
+      clientId: payload.clientId,
+      userId: payload.userId,
+      transactionId: payload.transactionId,
+      updateCount: payload.updates.length
+    });
+    logger.info("FULL PAYLOAD: " + JSON.stringify(payload, null, 2));
+    const serialized = JSON.stringify(payload);
+    const deserialized = JSON.parse(serialized);
+    if (serialized !== JSON.stringify(deserialized)) {
+      logger.error("WARNING: Payload may contain circular references or non-serializable values");
+    }
     const txResponse = await fetch(`${this.baseUrl}/sync`, {
       method: "POST",
       headers: {
@@ -445,6 +494,16 @@ async function setStorageValue(key, value) {
   });
 }
 var mewApi = new MewAPI();
+initializeMewApi().catch((err) => console.error("Failed to initialize MewAPI:", err));
+async function initializeMewApi() {
+  try {
+    const userId = await getUserId();
+    console.log("[MewClipper] Initializing MewAPI with user ID:", userId);
+    mewApi.setCurrentUserId(userId);
+  } catch (error) {
+    console.error("[MewClipper] Could not initialize MewAPI with user ID:", error);
+  }
+}
 async function getUserId() {
   const stored = await getStorageValue("userNodeId");
   if (!stored) {
@@ -454,6 +513,9 @@ async function getUserId() {
   }
   let decoded = decodeURIComponent(stored);
   decoded = decoded.replace(/%7C/gi, "|");
+  if (decoded.startsWith("user-root-id-")) {
+    decoded = decoded.substring("user-root-id-".length);
+  }
   return decoded;
 }
 var myClipsFolderName = "My Highlights";
@@ -506,18 +568,15 @@ async function ensureMyClips() {
   );
   const response = await mewApi.addNode({
     content: { type: "text", text: myClipsFolderName },
-    parentNodeId: rootNodeId,
-    authorId: await getUserId()
+    parentNodeId: rootNodeId
+    // Don't pass authorId here - the API will use the one set during initialization
   });
   const newClipsFolderId = response.newNodeId;
   console.log(
     `[MewClipper] '${myClipsFolderName}' folder created with id:`,
     newClipsFolderId
   );
-  console.log(
-    "[MewClipper] Node URL:",
-    mewApi.getNodeUrl(response.newNodeId)
-  );
+  console.log("[MewClipper] Node URL:", mewApi.getNodeUrl(response.newNodeId));
   return newClipsFolderId;
 }
 async function getArticleNode(title, url, myClipsFolderId) {
@@ -544,39 +603,36 @@ async function getArticleNode(title, url, myClipsFolderId) {
       "[MewClipper] Article node no longer a child of My Highlights, creating new one"
     );
   }
-  console.log("[MewClipper] Creating new article node for", title);
+  console.log(
+    "[MewClipper] Creating new article node for",
+    title
+  );
   const response = await mewApi.addNode({
     content: { type: "text", text: title },
-    parentNodeId: myClipsFolderId,
-    authorId: await getUserId()
+    parentNodeId: myClipsFolderId
+    // Don't pass authorId here - the API will use the one set during initialization
   });
   const articleNodeId = response.newNodeId;
   await mewApi.addNode({
     content: { type: "text", text: url },
     parentNodeId: articleNodeId,
-    relationLabel: "url",
-    authorId: await getUserId()
+    relationLabel: "url"
+    // Don't pass authorId here - the API will use the one set during initialization
   });
   articleNodes[url] = articleNodeId;
   await setStorageValue(storageKey, articleNodes);
-  console.log(
-    "[MewClipper] Node URL:",
-    mewApi.getNodeUrl(response.newNodeId)
-  );
+  console.log("[MewClipper] Node URL:", mewApi.getNodeUrl(response.newNodeId));
   return articleNodeId;
 }
 async function addClip(articleNodeId, clipText) {
   console.log("[MewClipper] Adding clip to article node:", articleNodeId);
   const response = await mewApi.addNode({
     content: { type: "text", text: clipText },
-    parentNodeId: articleNodeId,
-    authorId: await getUserId()
+    parentNodeId: articleNodeId
+    // Don't pass authorId here - the API will use the one set during initialization
   });
   console.log("[MewClipper] Created clip node with id:", response.newNodeId);
-  console.log(
-    "[MewClipper] Node URL:",
-    mewApi.getNodeUrl(response.newNodeId)
-  );
+  console.log("[MewClipper] Node URL:", mewApi.getNodeUrl(response.newNodeId));
   return response.newNodeId;
 }
 

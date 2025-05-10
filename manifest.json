@@ -3,6 +3,9 @@
     "name": "Mew Web Clipper",
     "version": "1.0",
     "description": "Chrome extension to quickly clip webpages and highlights to Mew.",
+    "content_security_policy": {
+        "extension_pages": "frame-src 'self' https://mew-edge.ideaflow.app; script-src 'self'; connect-src 'self' https://mew-edge.ideaflow.app https://ideaflow-mew-dev.us.auth0.com https://www.youtube.com;"
+    },
     "icons": {
         "16": "icons/icon16.png",
         "48": "icons/icon48.png",
@@ -17,7 +20,7 @@
         "notifications"
     ],
     "background": {
-        "service_worker": "dist/background.bundle.js",
+        "service_worker": "background.bundle.js",
         "type": "module"
     },
     "commands": {
@@ -31,10 +34,14 @@
     },
     "host_permissions": [
         "https://ideaflow-mew-dev.us.auth0.com/oauth/token",
-        "https://mew-edge.ideaflow.app/api/layer",
-        "https://mew-edge.ideaflow.app/api/sync",
+        "https://mew-edge.ideaflow.app/*",
         "https://www.youtube.com/api/timedtext*"
     ],
+    "options_page": "options.html",
+    "action": {
+        "default_title": "Mew Web Clipper Settings",
+        "default_popup": "options.html"
+    },
     "web_accessible_resources": [
         {
             "resources": [

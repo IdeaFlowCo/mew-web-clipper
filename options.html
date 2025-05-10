@@ -1,0 +1,180 @@
+<!DOCTYPE html>
+<html lang="en">
+    <head>
+        <meta charset="UTF-8" />
+        <title>Mew Web Clipper Settings</title>
+        <style>
+            body {
+                font-family: Arial, sans-serif;
+                margin: 20px;
+                max-width: 580px;
+                margin: 20px auto;
+            }
+            .container {
+                background: #f8f9fa;
+                padding: 20px;
+                border-radius: 8px;
+                box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+            }
+            h1 {
+                margin-top: 0;
+                color: #343a40;
+            }
+            input {
+                width: 100%;
+                padding: 12px;
+                margin: 10px 0;
+                border: 1px solid #ced4da;
+                border-radius: 4px;
+                font-size: 14px;
+                box-sizing: border-box;
+            }
+            button {
+                padding: 12px 24px;
+                background-color: #007bff;
+                color: white;
+                border: none;
+                border-radius: 4px;
+                cursor: pointer;
+                margin-top: 15px;
+                font-size: 16px;
+                display: block;
+                font-weight: bold;
+                transition: background-color 0.2s;
+            }
+            button:hover {
+                background-color: #0056b3;
+            }
+            button.secondary {
+                background-color: #6c757d;
+                margin-top: 10px;
+            }
+            button.secondary:hover {
+                background-color: #5a6268;
+            }
+            button.danger {
+                background-color: #dc3545;
+                margin-top: 20px;
+            }
+            button.danger:hover {
+                background-color: #bd2130;
+            }
+            .help-text {
+                color: #666;
+                font-size: 14px;
+                background: #fff;
+                padding: 15px;
+                border-radius: 4px;
+                border: 1px solid #e9ecef;
+                margin: 15px 0;
+            }
+            .section {
+                margin-bottom: 25px;
+                padding-bottom: 25px;
+                border-bottom: 1px solid #dee2e6;
+            }
+            .section:last-child {
+                border-bottom: none;
+                margin-bottom: 0;
+                padding-bottom: 0;
+            }
+            .status {
+                margin: 15px 0;
+                padding: 15px;
+                border-radius: 4px;
+            }
+            .status.success {
+                background-color: #d4edda;
+                color: #155724;
+                border: 1px solid #c3e6cb;
+            }
+            .status.error {
+                background-color: #f8d7da;
+                color: #721c24;
+                border: 1px solid #f5c6cb;
+            }
+            .current-settings {
+                background-color: #e2f0fd;
+                color: #0c5460;
+                border: 1px solid #bee5eb;
+                padding: 15px;
+                border-radius: 4px;
+                margin: 15px 0;
+            }
+            .hidden {
+                display: none;
+            }
+        </style>
+    </head>
+    <body>
+        <div class="container">
+            <h1>Mew Web Clipper Settings</h1>
+            
+            <div id="currentSettings" class="current-settings hidden">
+                <div id="currentSettingsContent"></div>
+            </div>
+            
+            <div id="userIdInfo" class="current-settings hidden">
+                <strong>Current User ID:</strong> <span id="currentUserId"></span>
+                <button id="copyUserIdBtn" class="secondary" style="display: inline-block; margin-left: 10px; padding: 4px 8px;">Copy</button>
+            </div>
+            
+            <div id="statusMessage" class="status hidden"></div>
+            
+            <div class="section">
+                <h2>Mew User Configuration</h2>
+                <p>Update your Mew user node URL:</p>
+                <input
+                    type="text"
+                    id="userNodeUrl"
+                    placeholder="https://mew-edge.ideaflow.app/..."
+                />
+                <div class="help-text">
+                    Go to 'your root' on the left-hand sidebar in Mew and click on the
+                    'copy url' icon next to your name.
+                </div>
+                <button id="saveBtn">Save Configuration</button>
+                
+                <div style="margin-top: 20px;">
+                    <h3>Quick Setup Option:</h3>
+                    <button id="openMewBtn" style="background-color: #28a745; margin-top: 10px;">
+                        Open Mew in New Window
+                    </button>
+                    <div class="help-text">
+                        <strong>Instructions:</strong><br>
+                        1. Click the button above to open Mew in a new window<br>
+                        2. Log in to Mew (if needed)<br>
+                        3. Navigate to your root by clicking on the home icon<br>
+                        4. Click the copy URL icon next to your name<br>
+                        5. Switch back to this tab and paste the URL above<br>
+                        6. Click "Save Configuration"<br>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="section">
+                <h2>YouTube Settings</h2>
+                <p>Enter a YouTube API key to enable enhanced transcript support:</p>
+                <input
+                    type="text"
+                    id="youtubeApiKey"
+                    placeholder="Your YouTube API Key"
+                />
+                <div class="help-text">
+                    The extension will attempt to fetch YouTube transcripts without an API key,
+                    but a key provides more reliable results. <a href="https://developers.google.com/youtube/v3/getting-started" target="_blank">Learn how to get a YouTube API key</a>.
+                </div>
+                <button id="saveYtBtn">Save YouTube API Key</button>
+            </div>
+
+            <div class="section">
+                <h2>Advanced</h2>
+                <button id="resetBtn" class="danger">Reset All Settings</button>
+                <div class="help-text">
+                    Warning: This will clear all your settings and you'll need to configure the extension again.
+                </div>
+            </div>
+        </div>
+        <script src="options.js"></script>
+    </body>
+</html>

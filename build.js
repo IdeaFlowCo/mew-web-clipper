@@ -54,9 +54,38 @@ await esbuild.build({
 import fs from "fs";
 
 const manifest = JSON.parse(fs.readFileSync("manifest.json", "utf8"));
-manifest.background.service_worker = "dist/background.bundle.js";
+// Update path to be relative for the dist copy
+manifest.background.service_worker = "background.bundle.js";
+
+// Save updated manifest to project root
 fs.writeFileSync("manifest.json", JSON.stringify(manifest, null, 4));
 
+// Also copy the manifest to dist directory
+fs.writeFileSync("dist/manifest.json", JSON.stringify(manifest, null, 4));
+
+// Make sure icons directory exists in dist
+if (!fs.existsSync("dist/icons")) {
+    fs.mkdirSync("dist/icons", { recursive: true });
+}
+
+// Copy icon files to dist/icons
+const iconSizes = [16, 48, 128];
+for (const size of iconSizes) {
+    fs.copyFileSync(`icons/icon${size}.png`, `dist/icons/icon${size}.png`);
+}
+
+// Copy required web accessible resources
+fs.copyFileSync("notification.css", "dist/notification.css");
+fs.copyFileSync("notification.js", "dist/notification.js");
+
+// Copy setup files
+fs.copyFileSync("setup.html", "dist/setup.html");
+fs.copyFileSync("setup.js", "dist/setup.js");
+
+// Copy options/settings files
+fs.copyFileSync("options.html", "dist/options.html");
+fs.copyFileSync("options.js", "dist/options.js");
+
 console.log(
-    "Build complete! Updated manifest.json to use bundled service worker."
+    "Build complete! Updated manifest.json and copied necessary files to dist directory."
 );

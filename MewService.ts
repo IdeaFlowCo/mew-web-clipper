@@ -88,14 +88,12 @@ export function createNodeContent(content: any) {
 
 export class MewAPI {
     private baseUrl: string;
-    private baseNodeUrl: string;
     private token: string;
     private currentUserId: string;
 
     constructor() {
         // Use the base URL from our AUTH_CONFIG
         this.baseUrl = AUTH_CONFIG.baseUrl;
-        this.baseNodeUrl = AUTH_CONFIG.baseNodeUrl;
         this.token = "";
         this.currentUserId = ""; // Will be set from user's root node URL
     }
@@ -114,7 +112,14 @@ export class MewAPI {
 
     async getAccessToken(): Promise<string> {
         // Retrieve an access token using Auth0 credentials.
+        // If we already have a valid token, return it
+        if (this.token) {
+            logger.info("Using existing access token");
+            return this.token;
+        }
+        
         try {
+            logger.info("Requesting new access token from Auth0...");
             const response = await fetch(
                 `https://${AUTH_CONFIG.auth0Domain}/oauth/token`,
                 {
@@ -133,21 +138,30 @@ export class MewAPI {
             );
 
             if (!response.ok) {
-                throw new Error(`Auth failed: ${response.statusText}`);
+                const errorText = await response.text();
+                logger.error(`Auth0 request failed: ${response.status} ${response.statusText}`);
+                logger.error(`Response: ${errorText}`);
+                throw new Error(`Auth failed: ${response.statusText}. Response: ${errorText}`);
             }
 
             const data = await response.json();
+            if (!data.access_token) {
+                logger.error("No access token in response:", data);
+                throw new Error("No access token in response");
+            }
+            
+            logger.info("Successfully obtained access token");
             this.token = data.access_token;
+            return this.token;
         } catch (error: unknown) {
             if (error instanceof Error) {
                 logger.error("Failed to fetch access token:", error);
             } else {
                 logger.error("Failed to fetch access token: Unknown error");
             }
-            // Fallback to a dummy token if necessary
-            this.token = "dummy-access-token";
+            // Instead of using a dummy token, propagate the error
+            throw new Error("Authentication failed. Please check your network connection and try again.");
         }
-        return this.token;
     }
 
     async addNode(input: {
@@ -356,12 +370,71 @@ export class MewAPI {
 
         // Step 5: Execute one transaction with all updates.
         const token = await this.getAccessToken();
+        
+        // Format checks 
+        if (!usedAuthorId || usedAuthorId === 'dummy-user-id' || usedAuthorId.includes('user-root-id-')) {
+            logger.error("Invalid authorId format:", usedAuthorId);
+            throw new Error(`Invalid authorId format: ${usedAuthorId}`);
+        }
+        
+        // Log the sync operation for debugging
+        logger.info(`Syncing node with authorId: ${usedAuthorId}`);
+        
+        // Format the update items to ensure compatibility with API expectations
+        // Clone the updates array for modification to avoid reference issues
+        const formattedUpdates = JSON.parse(JSON.stringify(updates));
+        
+        // Inspect and correct every update object's structure
+        formattedUpdates.forEach((update: any) => {
+            // Special handling for position objects to prevent nested prototypes
+            if (update.operation === "updateRelationList") {
+                if (update.newPosition) {
+                    // Force a flat object structure without prototype references
+                    update.newPosition = {
+                        int: update.newPosition.int,
+                        frac: update.newPosition.frac
+                    };
+                }
+            }
+            
+            // Fix relation objects in addRelation operations
+            if (update.operation === "addRelation" && update.fromPos && update.toPos) {
+                update.fromPos = {
+                    int: update.fromPos.int,
+                    frac: update.fromPos.frac
+                };
+                update.toPos = {
+                    int: update.toPos.int,
+                    frac: update.toPos.frac
+                };
+            }
+        });
+        
         const payload = {
             clientId: AUTH_CONFIG.auth0ClientId,
             userId: usedAuthorId,
             transactionId: transactionId,
-            updates: updates,
+            updates: formattedUpdates,
         };
+        
+        // Log summary for standard output
+        logger.info("Sending sync request with payload summary:", {
+            clientId: payload.clientId,
+            userId: payload.userId,
+            transactionId: payload.transactionId,
+            updateCount: payload.updates.length,
+        });
+        
+        // Log FULL payload for debugging
+        logger.info("FULL PAYLOAD: " + JSON.stringify(payload, null, 2));
+        
+        // Check for any nested objects with unexpected format that might cause issues
+        const serialized = JSON.stringify(payload);
+        const deserialized = JSON.parse(serialized);
+        
+        if (serialized !== JSON.stringify(deserialized)) {
+            logger.error("WARNING: Payload may contain circular references or non-serializable values");
+        }
 
         const txResponse = await fetch(`${this.baseUrl}/sync`, {
             method: "POST",
