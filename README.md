@@ -1,9 +1,12 @@
 # How to Install
 * Clone the repo `git clone https://github.com/IdeaFlowCo/mew-web-clipper.git`
+* Navigate to the cloned directory
+* Install dependencies with `bun install`
+* Build the extension with `bun run build`
 * Navigate to chrome://extensions
 * Enable 'Developer Mode' in the top-right
 * Click the 'Load Unpacked' button in the top-left
-* Load the cloned repo
+* Select the `dist` folder in the cloned repo
 * You're done! Happy clipping.
 
 # How to Use
