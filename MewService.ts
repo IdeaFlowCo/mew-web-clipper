@@ -366,6 +366,23 @@ export class MewAPI {
 
         // Step 5: Execute one transaction with all updates.
         const token = await this.getAccessToken();
+        
+        logger.info("Syncing node with authorId:", usedAuthorId);
+        logger.info("Sending sync request with payload summary:", {
+            clientId: AUTH_CONFIG.auth0ClientId,
+            userId: usedAuthorId,
+            transactionId: transactionId,
+            updateCount: updates.length,
+            updateTypes: updates.map(u => u.operation)
+        });
+        
+        logger.info("FULL PAYLOAD:", {
+            clientId: AUTH_CONFIG.auth0ClientId,
+            userId: usedAuthorId,
+            transactionId: transactionId,
+            updates: updates,
+        });
+        
         const payload = {
             clientId: AUTH_CONFIG.auth0ClientId,
             userId: usedAuthorId,

@@ -297,6 +297,20 @@ var MewAPI = class {
       });
     }
     const token = await this.getAccessToken();
+    logger.info("Syncing node with authorId:", usedAuthorId);
+    logger.info("Sending sync request with payload summary:", {
+      clientId: AUTH_CONFIG.auth0ClientId,
+      userId: usedAuthorId,
+      transactionId,
+      updateCount: updates.length,
+      updateTypes: updates.map((u) => u.operation)
+    });
+    logger.info("FULL PAYLOAD:", {
+      clientId: AUTH_CONFIG.auth0ClientId,
+      userId: usedAuthorId,
+      transactionId,
+      updates
+    });
     const payload = {
       clientId: AUTH_CONFIG.auth0ClientId,
       userId: usedAuthorId,
