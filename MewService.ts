@@ -401,7 +401,7 @@ export class MewAPI {
       clientId: AUTH_CONFIG.auth0ClientId,
       userId: usedAuthorId,
       transactionId: transactionId,
-      // updates: formattedUpdates,
+      updates: updates,
     };
 
     // Log summary for standard output
