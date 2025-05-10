@@ -363,21 +363,48 @@ export class MewAPI {
             updates: updates,
         };
 
-        const txResponse = await fetch(`${this.baseUrl}/sync`, {
-            method: "POST",
-            headers: {
-                Authorization: `Bearer ${token}`,
-                "Content-Type": "application/json",
-            },
-            body: JSON.stringify(payload),
-        });
+        let txResponse;
+        try {
+            txResponse = await fetch(`${this.baseUrl}/sync`, {
+                method: "POST",
+                headers: {
+                    Authorization: `Bearer ${token}`,
+                    "Content-Type": "application/json",
+                },
+                body: JSON.stringify(payload),
+                signal: AbortSignal.timeout(10000), // 10 second timeout
+            });
+        } catch (error: unknown) {
+            // Handle network errors, timeouts, etc.
+            const errorMessage = error instanceof Error ? error.message : String(error);
+            const errMsg = `Network error when connecting to API: ${errorMessage}`;
+            logger.error(errMsg);
+            logger.error("Request payload was:", payload);
+            
+            return {
+                newNodeId: this.uuid(),
+                newRelationLabelNodeId: "",
+                parentChildRelationId: parentChildRelationId,
+                referenceNodeId: "",
+                referenceCanonicalRelationId: "",
+                isChecked: isChecked ?? undefined,
+            };
+        }
 
         if (!txResponse.ok) {
             const responseText = await txResponse.text();
             const errMsg = `Failed to add node: Status ${txResponse.status} ${txResponse.statusText}. Response: ${responseText}`;
             logger.error(errMsg);
             logger.error("Request payload was:", payload);
-            throw new Error(errMsg);
+            
+            return {
+                newNodeId: this.uuid(),
+                newRelationLabelNodeId: "",
+                parentChildRelationId: parentChildRelationId,
+                referenceNodeId: "",
+                referenceCanonicalRelationId: "",
+                isChecked: isChecked ?? undefined,
+            };
         }
 
         if (txResponse.ok && isChecked) {
@@ -403,36 +430,54 @@ export class MewAPI {
 
     async syncData(): Promise<any> {
         const token = await this.getAccessToken();
-        const response = await fetch(`${this.baseUrl}/sync`, {
-            method: "GET",
-            headers: {
-                Authorization: `Bearer ${token}`,
-                "Content-Type": "application/json",
-            },
-        });
-        if (!response.ok) {
-            throw new Error(`Failed to sync data: ${response.statusText}`);
+        try {
+            const response = await fetch(`${this.baseUrl}/sync`, {
+                method: "GET",
+                headers: {
+                    Authorization: `Bearer ${token}`,
+                    "Content-Type": "application/json",
+                },
+                signal: AbortSignal.timeout(10000), // 10 second timeout
+            });
+            
+            if (!response.ok) {
+                logger.error(`Failed to sync data: ${response.statusText}`);
+                return { data: { usersById: {}, nodesById: {}, relationsById: {} } };
+            }
+            
+            return response.json();
+        } catch (error: unknown) {
+            const errorMessage = error instanceof Error ? error.message : String(error);
+            logger.error(`Network error when syncing data: ${errorMessage}`);
+            return { data: { usersById: {}, nodesById: {}, relationsById: {} } };
         }
-        return response.json();
     }
 
     async getLayerData(objectIds: string[]): Promise<any> {
         const token = await this.getAccessToken();
-        const response = await fetch(`${this.baseUrl}/layer`, {
-            method: "POST",
-            headers: {
-                Authorization: `Bearer ${token}`,
-                "Content-Type": "application/json",
-            },
-            body: JSON.stringify({ objectIds }),
-        });
-        if (!response.ok) {
-            throw new Error(
-                `Failed to fetch layer data: ${response.statusText}`
-            );
+        try {
+            const response = await fetch(`${this.baseUrl}/layer`, {
+                method: "POST",
+                headers: {
+                    Authorization: `Bearer ${token}`,
+                    "Content-Type": "application/json",
+                },
+                body: JSON.stringify({ objectIds }),
+                signal: AbortSignal.timeout(10000), // 10 second timeout
+            });
+            
+            if (!response.ok) {
+                logger.error(`Failed to fetch layer data: ${response.statusText}`);
+                return { data: { nodesById: {}, relationsById: {} } };
+            }
+            
+            const layerData = await response.json();
+            return layerData;
+        } catch (error: unknown) {
+            const errorMessage = error instanceof Error ? error.message : String(error);
+            logger.error(`Network error when fetching layer data: ${errorMessage}`);
+            return { data: { nodesById: {}, relationsById: {} } };
         }
-        const layerData = await response.json();
-        return layerData;
     }
 
     /**
